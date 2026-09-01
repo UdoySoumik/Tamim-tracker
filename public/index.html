@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tamim Tracker</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --bg-card:   #161b22;
+      --bg-hover:  #1f2937;
+      --border:    #30363d;
+      --accent:    #3fb950;
+      --accent-lo: rgba(63,185,80,.15);
+      --blue:      #58a6ff;
+      --red:       #ef4444;
+      --txt:       #e6edf3;
+      --txt-muted: #8b949e;
+      --radius:    14px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Overlay / Modals ─────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      padding: 1rem;
+    }
+    .overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      width: 100%; max-width: 420px;
+      animation: slideUp .25s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal h2 { font-size: 1.4rem; margin-bottom: .4rem; }
+    .modal p  { color: var(--txt-muted); font-size: .9rem; margin-bottom: 1.25rem; }
+
+    /* ── Form Controls ────────────────────────────────────────── */
+    input[type="text"] {
+      width: 100%;
+      padding: .7rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--txt);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus { border-color: var(--blue); }
+    input[type="text"]::placeholder { color: var(--txt-muted); }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+      padding: .7rem 1.4rem;
+      border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-primary   { background: var(--blue);   color: #fff; }
+    .btn-success   { background: var(--accent);  color: #000; }
+    .btn-ghost     { background: transparent; color: var(--txt-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--txt); border-color: var(--txt-muted); }
+    .btn-full      { width: 100%; }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      width: 100%; max-width: 700px;
+      padding: 1.5rem 1.5rem .5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo {
+      display: flex; align-items: center; gap: .6rem;
+      font-size: 1.1rem; font-weight: 700; letter-spacing: .5px;
+    }
+    .pulse-dot {
+      width: 10px; height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(63,185,80,.6);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(63,185,80,.6); }
+      70%  { box-shadow: 0 0 0 8px rgba(63,185,80,0); }
+      100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
+    }
+
+    .header-actions { display: flex; gap: .5rem; align-items: center; }
+    .user-chip {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .8rem; color: var(--txt-muted);
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 20px; padding: .3rem .75rem;
+      cursor: pointer; transition: border-color .15s;
+    }
+    .user-chip:hover { border-color: var(--blue); color: var(--txt); }
+
+    /* ── Main Layout ──────────────────────────────────────────── */
+    main {
+      width: 100%; max-width: 700px;
+      padding: 1rem 1.5rem 3rem;
+      display: flex; flex-direction: column; gap: 1.25rem;
+    }
+
+    /* ── Last Seen Card ───────────────────────────────────────── */
+    .last-seen-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .last-seen-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--blue));
+    }
+
+    .last-seen-label {
+      font-size: .75rem; font-weight: 600; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--txt-muted);
+      margin-bottom: 1rem;
+    }
+
+    .never-seen {
+      text-align: center; padding: 1.5rem 0;
+      color: var(--txt-muted);
+    }
+    .never-seen .big-emoji { font-size: 3rem; display: block; margin-bottom: .5rem; }
+    .never-seen strong { color: var(--txt); }
+
+    .seen-time-relative {
+      font-size: 2.2rem; font-weight: 700; color: var(--accent);
+      margin-bottom: .25rem; line-height: 1;
+    }
+    .seen-time-absolute {
+      font-size: .85rem; color: var(--txt-muted); margin-bottom: 1rem;
+    }
+
+    .seen-meta {
+      display: flex; flex-wrap: wrap; gap: .75rem;
+      margin-top: .75rem;
+    }
+    .meta-pill {
+      display: inline-flex; align-items: center; gap: .35rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 20px; padding: .35rem .85rem;
+      font-size: .85rem; color: var(--txt);
+    }
+    .meta-pill .icon { font-size: .9rem; }
+    .meta-pill.location { color: var(--blue); }
+    .meta-pill.seen-by  { color: var(--txt-muted); }
+
+    /* ── Check-in Card ────────────────────────────────────────── */
+    .checkin-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 2rem;
+    }
+    .checkin-card h3 {
+      font-size: 1.1rem; margin-bottom: .25rem;
+    }
+    .checkin-card p {
+      font-size: .85rem; color: var(--txt-muted); margin-bottom: 1.25rem;
+    }
+
+    .checkin-form { display: flex; flex-direction: column; gap: .75rem; }
+    .checkin-form .input-row { display: flex; gap: .75rem; }
+    .checkin-form .input-row input { flex: 1; }
+
+    .success-flash {
+      display: none;
+      background: var(--accent-lo);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      font-size: .9rem;
+      color: var(--accent);
+      align-items: center; gap: .5rem;
+    }
+    .success-flash.show { display: flex; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ── History Modal Content ────────────────────────────────── */
+    .history-modal { max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; }
+    .history-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .history-header h2 { font-size: 1.3rem; }
+    .history-count {
+      font-size: .8rem; color: var(--txt-muted);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: .2rem .65rem;
+    }
+    .history-close {
+      background: none; border: none; color: var(--txt-muted);
+      font-size: 1.4rem; cursor: pointer; line-height: 1;
+      padding: .15rem .4rem; border-radius: 4px;
+    }
+    .history-close:hover { color: var(--txt); background: var(--bg-hover); }
+
+    .history-list {
+      overflow-y: auto; flex: 1;
+      display: flex; flex-direction: column; gap: .6rem;
+      padding-right: .25rem;
+    }
+    .history-list::-webkit-scrollbar { width: 5px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .history-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .85rem 1rem;
+      display: grid; grid-template-columns: 1fr auto;
+      gap: .25rem .75rem;
+      align-items: start;
+    }
+    .history-item:first-child { border-color: var(--accent); }
+    .history-item .h-time   { font-size: .9rem; font-weight: 600; }
+    .history-item .h-abs    { font-size: .75rem; color: var(--txt-muted); grid-column: 1; }
+    .history-item .h-loc    { font-size: .8rem; color: var(--blue); grid-column: 1; margin-top: .2rem; }
+    .history-item .h-by     { font-size: .75rem; color: var(--txt-muted); text-align: right; }
+    .history-item .h-index  {
+      font-size: .7rem; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: .15rem .5rem; text-align: center;
+      color: var(--txt-muted); white-space: nowrap;
+    }
+
+    .history-footer {
+      margin-top: 1rem;
+      display: flex; justify-content: center; gap: .5rem;
+    }
+    .page-btn {
+      padding: .4rem .85rem; font-size: .85rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--txt); cursor: pointer;
+    }
+    .page-btn:hover { border-color: var(--blue); }
+    .page-btn.active { border-color: var(--blue); color: var(--blue); font-weight: 600; }
+    .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    .empty-history {
+      text-align: center; padding: 2rem; color: var(--txt-muted); font-size: .9rem;
+    }
+
+    /* ── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 500px) {
+      main, header { padding-left: 1rem; padding-right: 1rem; }
+      .last-seen-card, .checkin-card { padding: 1.25rem 1.25rem; }
+      .seen-time-relative { font-size: 1.8rem; }
+      .checkin-form .input-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Name Modal ──────────────────────────────────────────────────────────── -->
+<div class="overlay" id="nameOverlay">
+  <div class="modal">
+    <h2>👋 Hey there!</h2>
+    <p>Before you start tracking Tamim, let us know who you are. Your name will appear when you report a sighting.</p>
+    <form id="nameForm" style="display:flex;flex-direction:column;gap:.75rem;">
+      <input type="text" id="nameInput" placeholder="Your name" maxlength="100" autocomplete="name" />
+      <button type="submit" class="btn btn-primary btn-full">Let's go →</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── History Modal ───────────────────────────────────────────────────────── -->
+<div class="overlay hidden" id="historyOverlay">
+  <div class="modal history-modal">
+    <div class="history-header">
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <h2>Sighting History</h2>
+        <span class="history-count" id="historyTotal">0 sightings</span>
+      </div>
+      <button class="history-close" id="historyClose" aria-label="Close">×</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="empty-history">Loading…</div>
+    </div>
+    <div class="history-footer" id="historyPagination"></div>
+  </div>
+</div>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <span class="pulse-dot"></span>
+    TAMIM TRACKER
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" id="historyBtn" style="padding:.45rem .9rem;font-size:.85rem;">
+      📋 History
+    </button>
+    <div class="user-chip" id="userChip">
+      <span>👤</span>
+      <span id="userChipName">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Last Seen Card -->
+  <div class="last-seen-card">
+    <div class="last-seen-label">Last Seen</div>
+    <div id="lastSeenContent">
+      <div class="never-seen">
+        <span class="big-emoji">👀</span>
+        <strong>Tamim hasn't been spotted yet.</strong><br/>
+        <span>Be the first to report a sighting!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Check-in Card -->
+  <div class="checkin-card">
+    <h3>👁️ Spotted Tamim?</h3>
+    <p>Tap the button below to log a sighting. Add a location if you remember where you saw him.</p>
+    <div class="checkin-form">
+      <div id="successFlash" class="success-flash">
+        <span>✅</span> <span id="successMsg">Check-in recorded!</span>
+      </div>
+      <div class="input-row">
+        <input type="text" id="locationInput" placeholder="📍 Location (optional, e.g. Library, Cafeteria…)" maxlength="200" />
+      </div>
+      <button class="btn btn-success btn-full" id="checkinBtn" style="font-size:1.05rem;padding:.85rem;">
+        🎯 I SPOTTED TAMIM!
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  const LS_NAME_KEY = 'tamim_tracker_username';
+  let currentUser  = localStorage.getItem(LS_NAME_KEY) || '';
+  let historyPage  = 1;
+  const LIMIT      = 10;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const s = Math.floor(diff / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    if (s < 5)  return 'just now';
+    if (s < 60) return `${s} second${s !== 1 ? 's' : ''} ago`;
+    if (m < 60) return `${m} minute${m !== 1 ? 's' : ''} ago`;
+    if (h < 24) return `${h} hour${h !== 1 ? 's' : ''} ago`;
+    if (d < 30) return `${d} day${d !== 1 ? 's' : ''} ago`;
+    return formatDate(iso);
+  }
+
+  function formatDate(iso) {
+    return new Date(iso).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // ── Name Modal ─────────────────────────────────────────────────────────────
+  function initName() {
+    if (currentUser) {
+      document.getElementById('nameOverlay').classList.add('hidden');
+      document.getElementById('userChipName').textContent = currentUser;
+    } else {
+      document.getElementById('nameInput').focus();
+    }
+  }
+
+  document.getElementById('nameForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const val = document.getElementById('nameInput').value.trim();
+    if (!val) return;
+    currentUser = val.slice(0, 100);
+    localStorage.setItem(LS_NAME_KEY, currentUser);
+    document.getElementById('nameOverlay').classList.add('hidden');
+    document.getElementById('userChipName').textContent = currentUser;
+  });
+
+  // Click user chip to change name
+  document.getElementById('userChip').addEventListener('click', () => {
+    document.getElementById('nameInput').value = currentUser;
+    document.getElementById('nameOverlay').classList.remove('hidden');
+    document.getElementById('nameInput').focus();
+  });
+
+  // ── Last Seen ──────────────────────────────────────────────────────────────
+  async function loadLatest() {
+    try {
+      const res  = await fetch('/api/latest');
+      const data = await res.json();
+      renderLatest(data);
+    } catch {
+      // silently fail — UI stays in its default state
+    }
+  }
+
+  function renderLatest(data) {
+    const el = document.getElementById('lastSeenContent');
+    if (!data) {
+      el.innerHTML = `
+        <div class="never-seen">
+          <span class="big-emoji">👀</span>
+          <strong>Tamim hasn't been spotted yet.</strong><br/>
+          <span>Be the first to report a sighting!</span>
+        </div>`;
+      return;
+    }
+
+    const locPill = data.location
+      ? `<div class="meta-pill location"><span class="icon">📍</span>${escapeHtml(data.location)}</div>`
+      : '';
+
+    el.innerHTML = `
+      <div class="seen-time-relative" id="relativeTime">${timeAgo(data.seen_at)}</div>
+      <div class="seen-time-absolute">${formatDate(data.seen_at)}</div>
+      <div class="seen-meta">
+        ${locPill}
+        <div class="meta-pill seen-by"><span class="icon">👤</span>Spotted by <strong>${escapeHtml(data.seen_by)}</strong></div>
+      </div>`;
+  }
+
+  // Live-update relative time every 30 s
+  setInterval(async () => {
+    const el = document.getElementById('relativeTime');
+    if (!el) return;
+    try {
+      const res  = await fetch('/api/latest');
+      const data = await res.json();
+      if (data) el.textContent = timeAgo(data.seen_at);
+    } catch { /* ignore */ }
+  }, 30_000);
+
+  // ── Check-in ───────────────────────────────────────────────────────────────
+  document.getElementById('checkinBtn').addEventListener('click', async () => {
+    if (!currentUser) {
+      document.getElementById('nameOverlay').classList.remove('hidden');
+      document.getElementById('nameInput').focus();
+      return;
+    }
+    const location = document.getElementById('locationInput').value.trim();
+    const btn      = document.getElementById('checkinBtn');
+    btn.disabled   = true;
+    btn.textContent = '⏳ Recording…';
+
+    try {
+      const res = await fetch('/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen_by: currentUser, location: location || undefined })
+      });
+
+      if (!res.ok) throw new Error('Failed');
+      const newRow = await res.json();
+
+      document.getElementById('locationInput').value = '';
+      renderLatest(newRow);
+
+      const flash = document.getElementById('successFlash');
+      const msg   = document.getElementById('successMsg');
+      msg.textContent = location
+        ? `Check-in at "${escapeHtml(location)}" recorded!`
+        : 'Check-in recorded!';
+      flash.classList.add('show');
+      setTimeout(() => flash.classList.remove('show'), 3500);
+    } catch {
+      alert('Something went wrong. Please try again.');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '🎯 I SPOTTED TAMIM!';
+    }
+  });
+
+  // ── History Modal ──────────────────────────────────────────────────────────
+  document.getElementById('historyBtn').addEventListener('click', () => {
+    historyPage = 1;
+    openHistory();
+  });
+  document.getElementById('historyClose').addEventListener('click', () => {
+    document.getElementById('historyOverlay').classList.add('hidden');
+  });
+  document.getElementById('historyOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('historyOverlay'))
+      document.getElementById('historyOverlay').classList.add('hidden');
+  });
+
+  async function openHistory() {
+    document.getElementById('historyOverlay').classList.remove('hidden');
+    await fetchHistory(historyPage);
+  }
+
+  async function fetchHistory(page) {
+    const listEl  = document.getElementById('historyList');
+    const totalEl = document.getElementById('historyTotal');
+    const pagEl   = document.getElementById('historyPagination');
+    listEl.innerHTML = '<div class="empty-history">Loading…</div>';
+
+    try {
+      const res  = await fetch(`/api/checkins?page=${page}&limit=${LIMIT}`);
+      const data = await res.json();
+      const { checkins, total } = data;
+      const totalPages = Math.ceil(total / LIMIT);
+
+      totalEl.textContent = `${total} sighting${total !== 1 ? 's' : ''}`;
+
+      if (!checkins.length) {
+        listEl.innerHTML = '<div class="empty-history">No sightings recorded yet.</div>';
+        pagEl.innerHTML  = '';
+        return;
+      }
+
+      const globalOffset = (page - 1) * LIMIT;
+      listEl.innerHTML = checkins.map((c, i) => {
+        const rank = globalOffset + i + 1;
+        const locLine = c.location
+          ? `<div class="h-loc">📍 ${escapeHtml(c.location)}</div>`
+          : '';
+        return `
+          <div class="history-item">
+            <div class="h-time">${timeAgo(c.seen_at)}</div>
+            <div class="h-index">#${rank}</div>
+            <div class="h-abs">${formatDate(c.seen_at)}</div>
+            <div class="h-by">👤 ${escapeHtml(c.seen_by)}</div>
+            ${locLine}
+          </div>`;
+      }).join('');
+
+      // Pagination
+      let pag = '';
+      if (totalPages > 1) {
+        pag += `<button class="page-btn" ${page <= 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">← Prev</button>`;
+        for (let p = Math.max(1, page - 2); p <= Math.min(totalPages, page + 2); p++) {
+          pag += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+        }
+        pag += `<button class="page-btn" ${page >= totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">Next →</button>`;
+      }
+      pagEl.innerHTML = pag;
+
+    } catch {
+      listEl.innerHTML = '<div class="empty-history">Failed to load history.</div>';
+    }
+  }
+
+  function goPage(p) {
+    historyPage = p;
+    fetchHistory(p);
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  initName();
+  loadLatest();
+</script>
+</body>
+</html>
