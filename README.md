@@ -6,7 +6,7 @@ A fun web app to track Tamim Arifin sightings with timestamps, locations, and wh
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL 12+ (local or cloud)
+- PostgreSQL 18+ (local or cloud)
 
 ### Local Development
 

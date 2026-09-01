@@ -17,21 +17,25 @@ pool.on('error', err => {
 
 // ── Initialize Schema ────────────────────────────────────────────────────────
 async function initSchema() {
-  const client = await pool.connect();
   try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS checkins (
-        id        SERIAL PRIMARY KEY,
-        seen_by   VARCHAR(100) NOT NULL,
-        location  VARCHAR(200),
-        seen_at   TIMESTAMP WITH TIME ZONE NOT NULL
-      );
-    `);
-    console.log('✓ Schema initialized');
+    const client = await pool.connect();
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS checkins (
+          id        SERIAL PRIMARY KEY,
+          seen_by   VARCHAR(100) NOT NULL,
+          location  VARCHAR(200),
+          seen_at   TIMESTAMP WITH TIME ZONE NOT NULL
+        );
+      `);
+      console.log('✓ Schema initialized');
+    } finally {
+      client.release();
+    }
   } catch (err) {
-    console.error('Schema error:', err.message);
-  } finally {
-    client.release();
+    console.error('⚠️  Database connection error:', err.message);
+    console.error('Make sure PostgreSQL is running and configured in config.js or .env');
+    throw err;
   }
 }
 

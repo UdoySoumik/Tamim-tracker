@@ -29,10 +29,32 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
     }
 
-    /* ── Overlay / Modals ─────────────────────────────────────── */
+    .container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content-wrapper {
+      display: flex;
+      gap: 2rem;
+      padding: 0 1.5rem 3rem;
+      flex: 1;
+    }
+
+    main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sidebar {
+      width: 320px;
+      flex-shrink: 0;
+    }
     .overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,.75);
@@ -93,9 +115,10 @@
 
     /* ── Header ───────────────────────────────────────────────── */
     header {
-      width: 100%; max-width: 700px;
+      width: 100%;
       padding: 1.5rem 1.5rem .5rem;
       display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
     }
     .logo {
       display: flex; align-items: center; gap: .6rem;
@@ -126,9 +149,64 @@
 
     /* ── Main Layout ──────────────────────────────────────────── */
     main {
-      width: 100%; max-width: 700px;
-      padding: 1rem 1.5rem 3rem;
       display: flex; flex-direction: column; gap: 1.25rem;
+    }
+
+    /* ── Profile Card ─────────────────────────────────────────── */
+    .profile-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 1.5rem;
+      text-align: center;
+      position: sticky;
+      top: 20px;
+    }
+
+    .profile-avatar {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      margin: 0 auto 1.25rem;
+      object-fit: cover;
+      border: 2px solid var(--blue);
+      background: var(--bg);
+    }
+
+    .profile-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: .35rem;
+      color: var(--txt);
+    }
+
+    .profile-title {
+      font-size: .9rem;
+      color: var(--blue);
+      font-weight: 600;
+      margin-bottom: .5rem;
+    }
+
+    .profile-detail {
+      font-size: .8rem;
+      color: var(--txt-muted);
+      line-height: 1.6;
+      margin-bottom: .35rem;
+    }
+
+    .profile-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 1.25rem 0;
+    }
+
+    .profile-company {
+      font-size: .85rem;
+      color: var(--txt);
+      font-weight: 500;
+      padding: .75rem;
+      background: var(--bg);
+      border-radius: 8px;
     }
 
     /* ── Last Seen Card ───────────────────────────────────────── */
@@ -278,11 +356,29 @@
     }
 
     /* ── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .content-wrapper {
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 0 1rem 2rem;
+      }
+      .sidebar {
+        width: 100%;
+        order: -1; /* Put sidebar above main on mobile */
+      }
+      .profile-card {
+        position: static;
+      }
+    }
+
     @media (max-width: 500px) {
-      main, header { padding-left: 1rem; padding-right: 1rem; }
+      header { padding-left: 1rem; padding-right: 1rem; }
       .last-seen-card, .checkin-card { padding: 1.25rem 1.25rem; }
       .seen-time-relative { font-size: 1.8rem; }
       .checkin-form .input-row { flex-direction: column; }
+      .profile-card { padding: 1.5rem 1rem; }
+      .profile-avatar { width: 100px; height: 100px; }
+      .profile-name { font-size: 1.1rem; }
     }
   </style>
 </head>
@@ -334,8 +430,11 @@
   </div>
 </header>
 
-<!-- ── Main ────────────────────────────────────────────────────────────────── -->
-<main>
+<!-- ── Container ────────────────────────────────────────────────────────────── -->
+<div class="container">
+  <div class="content-wrapper">
+    <!-- Main Content -->
+    <main>
 
   <!-- Last Seen Card -->
   <div class="last-seen-card">
@@ -367,6 +466,22 @@
   </div>
 
 </main>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="profile-card">
+      <img src="/images/tamim-profile.jpg" alt="Tamim Arefin" class="profile-avatar" />
+      
+      <div class="profile-name">Tamim Arefin</div>
+      <div class="profile-title">Principal Software Architect</div>
+      
+      <div class="profile-divider"></div>
+      
+      <div class="profile-detail">SED, IT</div>
+      <div class="profile-company">Grameenphone</div>
+    </div>
+  </div>
+</div>
 
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
