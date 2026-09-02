@@ -240,7 +240,68 @@
     .seen-time-relative {
       font-size: 2.2rem; font-weight: 700; color: var(--accent);
       margin-bottom: .25rem; line-height: 1;
+      display: flex; align-items: center; gap: .75rem;
     }
+
+    .status-light {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    .status-light.warning {
+      background: #fbbf24;
+      box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+    }
+
+    .status-light.danger {
+      background: var(--red);
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.7);
+      animation: pulseRed 1s infinite;
+    }
+
+    @keyframes pulseRed {
+      0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.7); }
+      50% { box-shadow: 0 0 25px rgba(239, 68, 68, 1); }
+    }
+
+    .status-warning {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 500;
+    }
+
+    .status-warning.show { display: block; }
+    .status-warning.warning {
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid #fbbf24;
+      color: #fbbf24;
+    }
+
+    .status-warning.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--red);
+      color: var(--red);
+    }
+
+    .missing-alert {
+      font-size: 1.3rem;
+      font-weight: 700;
+      text-align: center;
+      margin-top: .5rem;
+      letter-spacing: 2px;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 49%, 100% { opacity: 1; }
+      50%, 99% { opacity: 0.5; }
+    }
+
     .seen-time-absolute {
       font-size: .85rem; color: var(--txt-muted); margin-bottom: 1rem;
     }
@@ -457,7 +518,7 @@
         <span>✅</span> <span id="successMsg">Check-in recorded!</span>
       </div>
       <div class="input-row">
-        <input type="text" id="locationInput" placeholder="📍 Location (optional, e.g. Library, Cafeteria…)" maxlength="200" />
+        <input type="text" id="locationInput" placeholder="📍 Location (optional, e.g. Lobby, Cafeteria, Tabaq…)" maxlength="200" />
       </div>
       <button class="btn btn-success btn-full" id="checkinBtn" style="font-size:1.05rem;padding:.85rem;">
         🎯 I SPOTTED TAMIM!
@@ -518,6 +579,77 @@
               .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
+  // Get current time in BD timezone (GMT+6)
+  // Get hour in BD timezone (Asia/Dhaka, GMT+6)
+  function getBDHour(dateObj = new Date()) {
+    // Use Intl API to get BD timezone hour
+    try {
+      const options = { timeZone: 'Asia/Dhaka', hour: '2-digit', hour12: false };
+      const formatter = new Intl.DateTimeFormat('en-US', options);
+      const bdTime = formatter.format(dateObj);
+      return parseInt(bdTime, 10);
+    } catch {
+      // Fallback: calculate manually (UTC+6)
+      const utcHours = dateObj.getUTCHours();
+      return (utcHours + 6) % 24;
+    }
+  }
+
+  // Get current BD date string for comparison
+  function getBDDateString(dateObj = new Date()) {
+    const options = { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    return formatter.format(dateObj);
+  }
+
+  // Calculate hours difference between two times in BD timezone
+  function getHoursDifference(isoTime) {
+    const seenTime = new Date(isoTime);
+    const now = new Date();
+    const diffMs = now.getTime() - seenTime.getTime();
+    return diffMs / (1000 * 60 * 60);
+  }
+
+  // Check if most recent checkin was in 6-8 PM (end of workday) in BD timezone
+  async function getMostRecentEveningCheckin() {
+    try {
+      const res = await fetch('/api/checkins?page=1&limit=10');
+      const data = await res.json();
+      
+      if (!data.checkins || data.checkins.length === 0) return null;
+      
+      // Most recent checkin is the first one
+      const mostRecent = data.checkins[0];
+      const checkInTime = new Date(mostRecent.seen_at);
+      const hour = getBDHour(checkInTime);
+      
+      // If between 6 PM (18:00) and 8 PM (20:00) in BD timezone, return the time
+      if (hour >= 18 && hour < 20) {
+        return checkInTime;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Check if should suppress warnings (outside office hours)
+  // If seen at 6-8 PM, suppress until 11 AM next day in BD timezone
+  async function shouldSuppressWarnings() {
+    try {
+      const eveningTime = await getMostRecentEveningCheckin();
+      if (!eveningTime) return false;
+      
+      const bdHour = getBDHour();
+      
+      // Suppress warnings if current hour is 11 AM or earlier in BD timezone
+      // (8 PM to 11:59 AM is considered "outside office hours")
+      return bdHour <= 11;
+    } catch {
+      return false;
+    }
+  }
+
   // ── Name Modal ─────────────────────────────────────────────────────────────
   function initName() {
     if (currentUser) {
@@ -556,7 +688,7 @@
     }
   }
 
-  function renderLatest(data) {
+  async function renderLatest(data) {
     const el = document.getElementById('lastSeenContent');
     if (!data) {
       el.innerHTML = `
@@ -572,23 +704,83 @@
       ? `<div class="meta-pill location"><span class="icon">📍</span>${escapeHtml(data.location)}</div>`
       : '';
 
+    const hoursDiff = getHoursDifference(data.seen_at);
+    let statusLight = '<span class="status-light"></span>';
+    let warning = '';
+
+    // Check if should suppress warnings based on office hours
+    const shouldSuppress = await shouldSuppressWarnings();
+    
+    if (!shouldSuppress) {
+      if (hoursDiff > 2) {
+        statusLight = '<span class="status-light danger"></span>';
+        warning = `
+          <div class="status-warning danger show">
+            <div>⚠️ ALERT: Tamim missing for more than 2 hours!</div>
+            <div class="missing-alert">LARGE MISSING</div>
+          </div>`;
+      } else if (hoursDiff > 1) {
+        statusLight = '<span class="status-light warning"></span>';
+        warning = `
+          <div class="status-warning warning show">
+            <div>⚠️ Warning: Tamim not seen for more than 1 hour! Call to verify location.</div>
+          </div>`;
+      }
+    }
+
     el.innerHTML = `
-      <div class="seen-time-relative" id="relativeTime">${timeAgo(data.seen_at)}</div>
+      <div class="seen-time-relative" id="relativeTime">${statusLight}${timeAgo(data.seen_at)}</div>
       <div class="seen-time-absolute">${formatDate(data.seen_at)}</div>
       <div class="seen-meta">
         ${locPill}
         <div class="meta-pill seen-by"><span class="icon">👤</span>Spotted by <strong>${escapeHtml(data.seen_by)}</strong></div>
-      </div>`;
+      </div>
+      ${warning}`;
   }
 
-  // Live-update relative time every 30 s
+  // Live-update relative time every 30 s and check status
   setInterval(async () => {
     const el = document.getElementById('relativeTime');
     if (!el) return;
     try {
       const res  = await fetch('/api/latest');
       const data = await res.json();
-      if (data) el.textContent = timeAgo(data.seen_at);
+      if (!data) return;
+
+      const hoursDiff = getHoursDifference(data.seen_at);
+      const shouldSuppress = await shouldSuppressWarnings();
+
+      let statusLight = '<span class="status-light"></span>';
+      let warning = '';
+
+      if (!shouldSuppress) {
+        if (hoursDiff > 2) {
+          statusLight = '<span class="status-light danger"></span>';
+          warning = `
+            <div class="status-warning danger show">
+              <div>⚠️ ALERT: Tamim missing for more than 2 hours!</div>
+              <div class="missing-alert">LARGE MISSING</div>
+            </div>`;
+        } else if (hoursDiff > 1) {
+          statusLight = '<span class="status-light warning"></span>';
+          warning = `
+            <div class="status-warning warning show">
+              <div>⚠️ Warning: Tamim not seen for more than 1 hour! Call to verify location.</div>
+            </div>`;
+        }
+      }
+
+      el.innerHTML = `${statusLight}${timeAgo(data.seen_at)}`;
+
+      // Update warning
+      const oldWarning = document.querySelector('.status-warning');
+      if (oldWarning) oldWarning.remove();
+      if (warning) {
+        const metaEl = document.querySelector('.seen-meta');
+        if (metaEl) {
+          metaEl.insertAdjacentHTML('afterend', warning);
+        }
+      }
     } catch { /* ignore */ }
   }, 30_000);
 
